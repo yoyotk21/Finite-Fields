@@ -1,1 +1,1 @@
-my first go program
+A finite field implementation in Golang!
