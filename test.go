@@ -2,20 +2,21 @@ package main
 
 import (
 	"crypto/rand"
+	"fmt"
 	"math/big"
 )
 
-func Test(f FiniteField) bool {	
+func GFPTest(f GFP) bool {
 	a, _ := rand.Int(rand.Reader, f.prime)
 	b, _ := rand.Int(rand.Reader, f.prime)
 	c, _ := rand.Int(rand.Reader, f.prime)
-	
+
 	// Associativity check
-	if f.add(f.add(a, b),c).Cmp(f.add(a, f.add(b,c))) != 0 {
+	if f.add(f.add(a, b), c).Cmp(f.add(a, f.add(b, c))) != 0 {
 		return false
 	}
 
-	if f.mul(f.mul(a, b),c).Cmp(f.mul(a, f.mul(b,c))) != 0 {
+	if f.mul(f.mul(a, b), c).Cmp(f.mul(a, f.mul(b, c))) != 0 {
 		return false
 	}
 
@@ -51,5 +52,31 @@ func Test(f FiniteField) bool {
 		return false
 	}
 
+	return true
+}
+
+func FFMTest(f *FFM) bool {
+	var cpy *FFM
+	// Inverse check
+	cpy = f.copy()
+	cpy.mul(cpy.mulInverse())
+	if !cpy.equals(cpy.mulIdentity()) {
+		fmt.Println("mul inverse issue")
+		return false
+	}
+	cpy = f.copy()
+	cpy.add(cpy.addInverse())
+	if !cpy.equals(cpy.addIdentity()) {
+		fmt.Println("add inverse issue")
+		return false
+	}
+	// Multiplication check
+	cpy = f.copy()
+	cpy.mul(cpy)
+	cpy.mul(f.mulInverse())
+	if !cpy.equals(f) {
+		fmt.Println("mul issue")
+		return false
+	}
 	return true
 }

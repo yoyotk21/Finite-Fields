@@ -4,27 +4,26 @@ import "math/big"
 
 // finite field implementation
 
-// Sort of useless at the moment, not really sure what to do with this
-type FiniteFielder interface {
-	add(a, b big.Int) big.Int
-	mul(a, b big.Int) big.Int
-	addInverse(n big.Int) big.Int
-	mulInverse(n big.Int) big.Int
+type FiniteField interface {
+	add(a, b *big.Int) *big.Int
+	mul(a, b *big.Int) *big.Int
+	addInverse(n *big.Int) *big.Int
+	mulInverse(n *big.Int) *big.Int
 }
 
-type FiniteField struct {
+type GFP struct {
 	prime *big.Int
 }
 
-func newFiniteField(prime *big.Int) FiniteField {
-	f := new(FiniteField)
+func newGFP(prime *big.Int) *GFP {
+	f := new(GFP)
 	f.prime = new(big.Int)
 	f.prime.Set(prime)
-	return *f
+	return f
 }
 
 // Verifies that numbers exist in the finite field
-func (f FiniteField) verify(nums ...*big.Int) bool {
+func (f GFP) verify(nums ...*big.Int) bool {
 	for i := range nums {
 		if nums[i].Cmp(f.prime) == 1 {
 			return false
@@ -34,7 +33,7 @@ func (f FiniteField) verify(nums ...*big.Int) bool {
 }
 
 // Adds two numbers in a finite field. Returns -1 if they cannot be added.
-func (f FiniteField) add(a, b *big.Int) *big.Int {
+func (f GFP) add(a, b *big.Int) *big.Int {
 	if !f.verify(a, b) {
 		return big.NewInt(-1)
 	}
@@ -44,7 +43,7 @@ func (f FiniteField) add(a, b *big.Int) *big.Int {
 }
 
 // Multiplies two numbers in a finite field. Returns -1 if they cannot be multiplied.
-func (f FiniteField) mul(a, b *big.Int) *big.Int {
+func (f GFP) mul(a, b *big.Int) *big.Int {
 	if !f.verify(a, b) {
 		return big.NewInt(-1)
 	}
@@ -54,7 +53,7 @@ func (f FiniteField) mul(a, b *big.Int) *big.Int {
 }
 
 // Returns the additive inverse for a number
-func (f FiniteField) addInverse(n *big.Int) *big.Int {
+func (f GFP) addInverse(n *big.Int) *big.Int {
 	if !f.verify(n) {
 		return big.NewInt(-1)
 	}
@@ -63,7 +62,7 @@ func (f FiniteField) addInverse(n *big.Int) *big.Int {
 
 }
 
-func (f FiniteField) mulInverse(n *big.Int) *big.Int {
+func (f GFP) mulInverse(n *big.Int) *big.Int {
 	if !f.verify(n) {
 		return big.NewInt(-1)
 	}
