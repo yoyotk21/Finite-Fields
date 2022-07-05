@@ -63,10 +63,9 @@ func (f GFP) addInverse(n *big.Int) *big.Int {
 }
 
 func (f GFP) mulInverse(n *big.Int) *big.Int {
-	if !f.verify(n) {
+	if !f.verify(n) || n.Sign() == 0 {
 		return big.NewInt(-1)
 	}
-
 	//n^(p-2) mod p
 	ans := new(big.Int)
 	return ans.Exp(n, ans.Sub(f.prime, big.NewInt(2)), f.prime)

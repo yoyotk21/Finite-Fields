@@ -8,8 +8,8 @@ import (
 func main() {
 	f := NewFFM(newGFP(big.NewInt(7)), 2, 2)
 	arr := [][]*big.Int{
-		{big.NewInt(6), big.NewInt(4)},
-		{big.NewInt(1), big.NewInt(1)}}
+		{big.NewInt(0), big.NewInt(1)},
+		{big.NewInt(0), big.NewInt(1)}}
 	f.set(arr)
 	// g := NewFFM(newGFP(big.NewInt(30)), 2, 2)
 	// arr2 := [][]*big.Int {

@@ -144,15 +144,30 @@ func (f FFM) mulInverse() *FFM {
 			arr[i][j] = b
 		}
 	}
-	var behind int
 	for col := range arr[0] {
+		if arr[col][col].Cmp(big.NewInt(0)) == 0 {
+			for k := col+1; k < len(arr); k++ {
+				if arr[col][k].Cmp(big.NewInt(0)) != 0 {
+					tmp := arr[col]
+					tmpIdentity := identity.matrix[col]
+					arr[col] = arr[k]
+					arr[k] = tmp
+					identity.matrix[col] = identity.matrix[k]
+					identity.matrix[k] = tmpIdentity
+					break
+				}
+			}
+			if arr[col][col].Cmp(big.NewInt(0)) == 0 {
+				fmt.Println("matrix does not have an error")
+				return nil
+			}
+		}
 		for row := range arr {
 			if row != col {
-				behind = col
-				c := f.finiteField.mul(arr[row][col], f.finiteField.mulInverse(arr[behind][col]))
+				c := f.finiteField.mul(arr[row][col], f.finiteField.mulInverse(arr[col][col]))
 				for j := range arr[row] {
-					arr[row][j] = f.finiteField.add(arr[row][j], f.finiteField.addInverse(f.finiteField.mul(arr[behind][j], c)))
-					identity.matrix[row][j] = f.finiteField.add(identity.matrix[row][j], f.finiteField.addInverse(f.finiteField.mul(identity.matrix[behind][j], c)))
+					arr[row][j] = f.finiteField.add(arr[row][j], f.finiteField.addInverse(f.finiteField.mul(arr[col][j], c)))
+					identity.matrix[row][j] = f.finiteField.add(identity.matrix[row][j], f.finiteField.addInverse(f.finiteField.mul(identity.matrix[col][j], c)))
 				}
 			}
 		}
