@@ -1,15 +1,24 @@
 package main
 
 import (
+	"errors"
 	"fmt"
-	"math/big"
 )
 
 type FFM struct {
 	numRows     int
 	numCols     int
-	matrix      [][]*big.Int
+	matrix      [][]Element
 	finiteField FiniteField
+}
+
+func PrintMatrix(m [][]Element) {
+	for i := range m {
+		for j := range m[i] {
+			fmt.Print(m[i][j].Val(), " ")
+		}
+		fmt.Println()
+	}
 }
 
 func NewFFM(finiteField FiniteField, length, width int) *FFM {
@@ -17,137 +26,172 @@ func NewFFM(finiteField FiniteField, length, width int) *FFM {
 	f.finiteField = finiteField
 	f.numRows = length
 	f.numCols = width
-	f.matrix = make([][]*big.Int, length)
+	f.matrix = make([][]Element, length)
 	for i := range f.matrix {
-		f.matrix[i] = make([]*big.Int, width)
-		for j := range f.matrix[i] {
-			f.matrix[i][j] = big.NewInt(0)
-		}
+		f.matrix[i] = make([]Element, width)
 	}
 	return f
 }
 
-func (f FFM) print() {
+func NewFFMButEasier(prime int64, arr [][]int) *FFM {
+	f := NewFFM(NewGFPButEasier(prime), len(arr), len(arr[0]))
+	f.SetButEasier(arr)
+	return f
+}
+
+func (f FFM) Print() {
 	for i := range f.matrix {
 		for j := range f.matrix[i] {
-			fmt.Print(f.matrix[i][j], " ")
+			if f.matrix[i][j] == nil {
+				fmt.Print("<nil>", " ")
+			} else {
+				fmt.Print(f.matrix[i][j].Val(), " ")
+			}
 		}
 		fmt.Println()
 	}
 }
 
-func (f FFM) sameSize(matrix *FFM) bool {
+func (f FFM) SameSize(matrix *FFM) bool {
+	if matrix.numRows == 0 && f.numRows == 0  {
+		return true
+	}
 	if len(matrix.matrix) == f.numRows && len(matrix.matrix[0]) == f.numCols {
 		return true
 	}
 	return false
 }
 
-func (f FFM) set(arr [][]*big.Int) error {
+func (f FFM) Set(arr [][]Element) error {
 	if len(arr) != f.numRows || len(arr[0]) != f.numCols {
-		return fmt.Errorf("matrix not of correct proportions")
+		return errors.New("matrix not of correct proportions")
 	}
 	for i := range arr {
-		copy(f.matrix[i], arr[i])
-	}
-	return nil
-}
-
-func (f FFM) add(m *FFM) error {
-	if !f.sameSize(m) {
-		return fmt.Errorf("matricies are not of the same size")
-	}
-	for i := range f.matrix {
-		for j := range f.matrix[i] {
-			f.matrix[i][j] = f.finiteField.add(f.matrix[i][j], m.matrix[i][j])
+		for j := range arr[i] {
+			if !f.finiteField.Contains(arr[i][j]) {
+				return errors.New("matrix is not compatible with Finite Field")
+			}
+			f.matrix[i][j] = arr[i][j]
 		}
 	}
 	return nil
 }
 
-// returns new slice, however the values themselves still point to the same big Ints
-func (f FFM) col(c int) []*big.Int {
-	ans := make([]*big.Int, f.numRows)
+func (f FFM) SetButEasier(arr [][]int) error {
+	arrButWayMoreComplicated := make([][]Element, len(arr))
+	for i := range arrButWayMoreComplicated {
+		arrButWayMoreComplicated[i] = make([]Element, len(arr[0]))
+		for j := range arrButWayMoreComplicated[i] {
+			num := f.finiteField.(*GFP).NewElementButEasier(arr[i][j])
+			arrButWayMoreComplicated[i][j] = num
+		}
+	}
+	return f.Set(arrButWayMoreComplicated)
+}
+
+func (f FFM) Add(m *FFM) error {
+	if !f.SameSize(m) {
+		return fmt.Errorf("matricies are not of the same size")
+	}
+	for i := range f.matrix {
+		for j := range f.matrix[i] {
+			f.matrix[i][j] = f.matrix[i][j].Add(m.matrix[i][j])
+		}
+	}
+	return nil
+}
+
+// returns new slice, however the values themselves still point to the same elements
+func (f FFM) Col(c int) []Element {
+	ans := make([]Element, f.numRows)
 	for i := range f.matrix {
 		ans[i] = f.matrix[i][c]
 	}
 	return ans
 }
 
-func (f FFM) row(c int) []*big.Int {
+func (f FFM) Row(c int) []Element {
 	return f.matrix[c]
 }
 
 // dots 2 vectors
-func (f FFM) dot(v1, v2 []*big.Int) *big.Int {
-	ans := new(big.Int)
-	ans.SetInt64(0)
+func (f FFM) Dot(v1, v2 []Element) Element {
+	ans := f.finiteField.AddIdentity()
 	for i := range v1 {
-		ans = f.finiteField.add(ans, f.finiteField.mul(v1[i], v2[i]))
+		ans = ans.Add(v1[i].Mul(v2[i]))
 	}
 	return ans
 }
 
-func (f FFM) mul(m *FFM) error {
+func (f FFM) Mul(m *FFM) error {
 	if f.numCols != len(m.matrix) {
-		return fmt.Errorf("the matrix attempted to add here is not of the same size, unfortunatly")
+		return fmt.Errorf("the matrix attempted to multiply here is not of the same size, unfortunatly")
 	}
-	ans := make([][]*big.Int, f.numRows)
+	ans := make([][]Element, f.numRows)
 	for i := range f.matrix {
-		row := make([]*big.Int, f.numCols)
+		row := make([]Element, f.numCols)
 		for j := range row {
-			row[j] = f.dot(f.matrix[i], m.col(j))
+			row[j] = f.Dot(f.matrix[i], m.Col(j))
 		}
 		ans[i] = row
 	}
-	f.set(ans)
+	if len(ans) != 0 {
+		f.Set(ans)
+	}
 	return nil
 }
 
-func (f FFM) addInverse() *FFM {
-	ans := f.copy()
+func (f FFM) AddInverse() *FFM {
+	ans := f.Copy()
 	for i := range ans.matrix {
 		for j := range ans.matrix[i] {
-			ans.matrix[i][j] = f.finiteField.addInverse(ans.matrix[i][j])
+			ans.matrix[i][j] = ans.matrix[i][j].AddInverse()
 		}
 	}
 	return ans
 }
 
-func (f FFM) mulIdentity() *FFM {
-	ans := make([][]*big.Int, len(f.matrix))
-	for i := range ans {
-		row := make([]*big.Int, f.numCols)
-		for j := range row {
-			row[j] = big.NewInt(0)
+func (f FFM) MulIdentity() *FFM {
+	ans := NewFFM(f.finiteField, f.numRows, f.numCols)
+	for i := range ans.matrix {
+		for j := range ans.matrix[i] {
+			ans.matrix[i][j] = f.finiteField.AddIdentity()
 		}
-		row[i] = big.NewInt(1)
-		ans[i] = row
+		if len(ans.matrix[i]) > i {
+			ans.matrix[i][i] = f.finiteField.MulIdentity()
+		}
 	}
-	h := NewFFM(f.finiteField, f.numRows, f.numCols)
-	h.set(ans)
-	return h
+	return ans
 }
 
-func (f FFM) addIdentity() *FFM {
-	return NewFFM(f.finiteField, f.numRows, f.numCols)
-}
-
-func (f FFM) mulInverse() *FFM {
-	identity := f.mulIdentity()
-	arr := make([][]*big.Int, len(f.matrix))
+func (f FFM) AddIdentity() *FFM {
+	ffm := NewFFM(f.finiteField, f.numRows, f.numCols)
 	for i := range f.matrix {
-		arr[i] = make([]*big.Int, f.numCols)
+		for j := range f.matrix[i] {
+			ffm.matrix[i][j] = ffm.finiteField.AddIdentity()
+		}
+	}
+	return ffm
+}
+
+func (f FFM) MulInverse() (*FFM, error) {
+	identity := f.MulIdentity()
+	var arr [][]Element
+
+	arr = make([][]Element, len(f.matrix))
+	for i := range f.matrix {
+		arr[i] = make([]Element, f.numCols)
 		for j := range arr[i] {
-			b := new(big.Int)
-			b.Set(f.matrix[i][j])
-			arr[i][j] = b
+			// b := new(big.Int)
+			// b.Set(f.matrix[i][j])
+			// arr[i][j] = b
+			arr[i][j] = f.matrix[i][j]
 		}
 	}
 	for col := range arr[0] {
-		if arr[col][col].Cmp(big.NewInt(0)) == 0 {
-			for k := col+1; k < len(arr); k++ {
-				if arr[col][k].Cmp(big.NewInt(0)) != 0 {
+		if len(arr[col]) > col && arr[col][col].Equals(f.finiteField.AddIdentity()) {
+			for k := col + 1; k < len(arr); k++ {
+				if arr[col][k].Equals(f.finiteField.AddIdentity()) {
 					tmp := arr[col]
 					tmpIdentity := identity.matrix[col]
 					arr[col] = arr[k]
@@ -157,40 +201,40 @@ func (f FFM) mulInverse() *FFM {
 					break
 				}
 			}
-			if arr[col][col].Cmp(big.NewInt(0)) == 0 {
-				fmt.Println("matrix does not have an error")
-				return nil
+			if arr[col][col].Equals(f.finiteField.AddIdentity()) {
+				return nil, errors.New("matrix does not have an inverse")
 			}
 		}
 		for row := range arr {
 			if row != col {
-				c := f.finiteField.mul(arr[row][col], f.finiteField.mulInverse(arr[col][col]))
+				c := arr[row][col].Mul(arr[col][col].MulInverse())
 				for j := range arr[row] {
-					arr[row][j] = f.finiteField.add(arr[row][j], f.finiteField.addInverse(f.finiteField.mul(arr[col][j], c)))
-					identity.matrix[row][j] = f.finiteField.add(identity.matrix[row][j], f.finiteField.addInverse(f.finiteField.mul(identity.matrix[col][j], c)))
+					arr[row][j] = arr[row][j].Add(arr[col][j].Mul(c).AddInverse())
+					identity.matrix[row][j] = identity.matrix[row][j].Add(identity.matrix[col][j].Mul(c).AddInverse())
 				}
 			}
 		}
 	}
 	for i := range arr {
-		v := f.finiteField.mulInverse(arr[i][i])
+		v := arr[i][i].MulInverse()
+		
 		for j := range arr[i] {
-			arr[i][j] = f.finiteField.mul(arr[i][j], v)
-			identity.matrix[i][j] = f.finiteField.mul(identity.matrix[i][j], v)
+			arr[i][j] = arr[i][j].Mul(v)
+			identity.matrix[i][j] = identity.matrix[i][j].Mul(v)
 		}
 	}
-	return identity
+	return identity, nil
 }
 
-func (f FFM) scale(s *big.Int) {
+func (f FFM) Scale(s Element) {
 	for i := range f.matrix {
 		for j := range f.matrix[i] {
-			f.matrix[i][j] = f.finiteField.mul(s, f.matrix[i][j])
+			f.matrix[i][j] = s.Mul(f.matrix[i][j])
 		}
 	}
 }
 
-func (f FFM) copy() *FFM{
+func (f FFM) Copy() *FFM {
 	ans := NewFFM(f.finiteField, f.numRows, f.numCols)
 	for i := range f.matrix {
 		for j := range f.matrix[i] {
@@ -200,13 +244,13 @@ func (f FFM) copy() *FFM{
 	return ans
 }
 
-func (f FFM) equals(m *FFM) bool {
-	if !f.sameSize(m) {
+func (f FFM) Equals(m *FFM) bool {
+	if !f.SameSize(m) {
 		return false
 	}
 	for i := range f.matrix {
 		for j := range f.matrix[i] {
-			if f.matrix[i][j].Cmp(m.matrix[i][j]) != 0 {
+			if !f.matrix[i][j].Equals(m.matrix[i][j]) {
 				return false
 			}
 		}
